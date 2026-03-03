@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Validação de CNPJ</title>
+
+<style>
+*{box-sizing:border-box}
+
+:root{
+--bg:#f4f6f8;
+--text:#111;
+--muted:#444;
+--card:#fff;
+--border:#d7dbe0;
+--primary:#0066ff;
+--shadow:0 18px 45px rgba(0,0,0,.10);
+--radius:18px;
+}
+
+body{
+font-family:Arial,sans-serif;
+margin:0;
+color:var(--text);
+
+background-color:var(--bg);
+background-image:url("img/vitoria-es.jpg");
+background-size:cover;
+background-position:center;
+background-repeat:no-repeat;
+background-attachment:fixed;
+}
+
+.wrap{
+min-height:100vh;
+display:flex;
+align-items:center;
+justify-content:center;
+padding:48px 18px;
+position:relative;
+}
+
+.wrap::before{
+content:"";
+position:absolute;
+inset:0;
+background:rgba(255,255,255,.88);
+backdrop-filter:blur(3px);
+}
+
+.container{
+width:min(560px,100%);
+display:flex;
+flex-direction:column;
+align-items:center;
+gap:18px;
+position:relative;
+z-index:1;
+}
+
+.logo-top{
+width:150px;
+height:auto;
+object-fit:contain;
+}
+
+.card{
+width:100%;
+background:var(--card);
+border-radius:var(--radius);
+padding:32px;
+box-shadow:var(--shadow);
+border:1px solid rgba(0,0,0,.04);
+}
+
+.title{
+display:flex;
+align-items:center;
+justify-content:center;
+gap:10px;
+margin-bottom:10px;
+text-align:center;
+}
+
+.title img{width:24px;height:24px}
+
+h1{font-size:26px;margin:0}
+p{margin:0 0 22px;color:var(--muted);text-align:center}
+
+input{
+width:100%;
+padding:16px;
+font-size:18px;
+border:1px solid var(--border);
+border-radius:12px;
+outline:none;
+}
+
+input:focus{
+border-color:#6aa5ff;
+box-shadow:0 0 0 4px rgba(106,165,255,.22);
+}
+
+button{
+width:100%;
+margin-top:16px;
+padding:16px;
+font-size:17px;
+font-weight:700;
+border:0;
+border-radius:12px;
+cursor:pointer;
+background:var(--primary);
+color:#fff;
+}
+
+button:disabled{
+opacity:.7;
+cursor:not-allowed;
+}
+
+.msg{margin-top:16px;font-weight:700;text-align:center}
+.ok{color:#0a7a2f}
+.err{color:#b00020}
+
+@media (prefers-color-scheme:dark){
+:root{
+--bg:#0e1220;
+--text:#eaeaf0;
+--muted:#bfc3ff;
+--card:#161a2b;
+--border:#2c3160;
+--primary:#4d7cff;
+}
+.wrap::before{background:rgba(14,18,32,.85)}
+}
+</style>
+</head>
+
+<body>
+<div class="wrap">
+<div class="container">
+
+<img src="img/logo.imagem.png" class="logo-top" alt="Logo">
+
+<div class="card">
+<div class="title">
+<img src="img/lock.svg" alt="Dados seguros">
+<h1>Validação de CNPJ</h1>
+</div>
+
+<p>Digite seu CNPJ para validar.</p>
+
+<input id="cnpj" inputmode="numeric" autocomplete="off" placeholder="Somente números (14 dígitos)">
+<button id="btn">Validar</button>
+<div id="msg" class="msg"></div>
+</div>
+
+</div>
+</div>
+
+<script>
+const APP_SCRIPT_URL= 'https://script.google.com/macros/library/d/1yPlX0eq66c8vX_IXzvOzXoU_5Hu07qGD8y8yvMbKrZMWK_6PQWZq4Np5/1';
+
+const $cnpj=document.getElementById('cnpj');
+const $msg=document.getElementById('msg');
+const $btn=document.getElementById('btn');
+
+// ✅ MENSAGENS: iguais às do seu modelo
+const MSG_NAO_CADASTRADO='CNPJ não encontrado, favor entrar em contato na central da Rede Inova';
+const MSG_SEM_LINK='Acesso liberado, mas o link não foi enviado. Entre em contato com a central da Rede Inova.';
+const MSG_ERRO_GENERICO='Erro de comunicação. Tente novamente.';
+
+function limpar(s){return(s||'').replace(/\D/g,'');}
+function mostrar(texto,tipo){
+  $msg.textContent=texto;
+  $msg.className='msg '+(tipo==='ok'?'ok':'err');
+}
+
+// ✅ Detecta “não cadastrado” mesmo com variações/acentos
+function ehNaoCadastrado(msg){
+  const m=String(msg||'')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g,'');
+
+  return(
+    m.includes('cnpj nao encontrado') ||
+    m.includes('nao encontrado') ||
+    m.includes('nao cadastrado') ||
+    m.includes('inexistente') ||
+    m.includes('negado') ||
+    m.includes('bloqueado') ||
+    m.includes('sem permissao') ||
+    m.includes('sem permissão')
+  );
+}
+
+$btn.addEventListener('click', async ()=>{
+  const cnpj=limpar($cnpj.value);
+
+  if(!cnpj) return mostrar('Digite um CNPJ.','err');
+  if(cnpj.length!==14) return mostrar('CNPJ precisa ter 14 dígitos.','err');
+
+  mostrar('Validando...','ok');
+  $btn.disabled=true;
+
+  const controller=new AbortController();
+  const timeoutId=setTimeout(()=>controller.abort(),30000); // 30s
+
+  try{
+    const payload=JSON.stringify({cnpj});
+
+    const resp=await fetch(APP_SCRIPT_URL,{
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:payload,
+      signal:controller.signal
+    });
+
+    if(!resp.ok){
+      if(resp.status===404) return mostrar('Servidor não encontrado (404).','err');
+      if(resp.status===401 || resp.status===403) return mostrar('Acesso bloqueado pelo servidor (403/401).','err');
+      if(resp.status>=500) return mostrar('Servidor com problema (5xx). Tente novamente.','err');
+      return mostrar(`Erro no servidor (HTTP ${resp.status}).`,'err');
+    }
+
+    let data;
+    try{
+      data=await resp.json();
+    }catch{
+      return mostrar('Resposta inválida do servidor (não veio JSON).','err');
+    }
+
+    // ❌ Não OK: controla a mensagem do seu jeito
+    if(!data || !data.ok){
+      const serverMsg=(data && data.msg) ? String(data.msg) : '';
+
+      if(!serverMsg){
+        return mostrar(MSG_NAO_CADASTRADO,'err');
+      }
+
+      if(ehNaoCadastrado(serverMsg)){
+        return mostrar(MSG_NAO_CADASTRADO,'err');
+      }
+
+      return mostrar(serverMsg || MSG_NAO_CADASTRADO,'err');
+    }
+
+    // ✅ OK mas sem link
+    if(!data.link){
+      return mostrar(MSG_SEM_LINK,'err');
+    }
+
+    mostrar('Acesso liberado. Redirecionando...','ok');
+    window.location.href=data.link;
+
+  }catch(err){
+    if(err && err.name==='AbortError'){
+      return mostrar('Demorou demais para responder. Tente novamente.','err');
+    }
+    return mostrar(MSG_ERRO_GENERICO,'err');
+  }finally{
+    clearTimeout(timeoutId);
+    $btn.disabled=false;
+  }
+});
+</script>
+</body>
+</html>
